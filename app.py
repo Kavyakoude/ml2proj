@@ -1,45 +1,41 @@
-# streamlit_app.py
-
 import streamlit as st
 import cv2
 import numpy as np
-from PIL import Image
 
 st.set_page_config(layout="wide")
+st.title("🎯 Virtual Mouse Detection (Color-Based)")
 
-# Title
-st.title("🎯 Virtual Mouse Controller Using Color Detection")
+st.sidebar.header("🎨 HSV Range for Yellow Color")
+l_h = st.sidebar.slider("Lower Hue", 0, 180, 20)
+l_s = st.sidebar.slider("Lower Saturation", 0, 255, 100)
+l_v = st.sidebar.slider("Lower Value", 0, 255, 100)
+u_h = st.sidebar.slider("Upper Hue", 0, 180, 40)
+u_s = st.sidebar.slider("Upper Saturation", 0, 255, 255)
+u_v = st.sidebar.slider("Upper Value", 0, 255, 255)
 
-# Sidebar for color calibration
-st.sidebar.title("🎨 Color Calibration")
+FRAME_WINDOW = st.image([])
 
-def get_slider(name, default):
-    h = st.sidebar.slider(f"{name} - Hue", 0, 180, default[0])
-    s = st.sidebar.slider(f"{name} - Saturation", 0, 255, default[1])
-    v = st.sidebar.slider(f"{name} - Value", 0, 255, default[2])
-    return np.array([h, s, v])
-
-# Color thresholds
-yellow_low = get_slider("Yellow Lower", [21, 70, 80])
-yellow_high = get_slider("Yellow Upper", [61, 255, 255])
-
-# Webcam capture
 cap = cv2.VideoCapture(0)
-ret, frame = cap.read()
 
-if ret:
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        st.error("❌ Failed to capture video from webcam.")
+        break
+
     frame = cv2.flip(frame, 1)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    mask = cv2.inRange(hsv, yellow_low, yellow_high)
-    result = cv2.bitwise_and(frame, frame, mask=mask)
+    lower = np.array([l_h, l_s, l_v])
+    upper = np.array([u_h, u_s, u_v])
+    mask = cv2.inRange(hsv, lower, upper)
 
-    # Convert BGR to RGB for display
-    stframe1, stframe2 = st.columns(2)
-    stframe1.image(frame, caption="Original Frame", channels="BGR")
-    stframe2.image(result, caption="Masked Frame", channels="BGR")
+    # Find contours
+    contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if 200 < area < 3000:
+            x, y, w, h = cv2.boundingRect(cnt)
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
-    cap.release()
-else:
-    st.error("Failed to access webcam.")
-
+    FRAME_WINDOW.image(frame, channels="BGR")
