@@ -1,41 +1,49 @@
-import streamlit as st
 import cv2
 import numpy as np
+import streamlit as st
 
 st.set_page_config(layout="wide")
-st.title("🎯 Virtual Mouse Detection (Color-Based)")
+st.markdown("<h1 style='text-align: center;'>🎯 Virtual Mouse Controller Using Color Detection</h1>", unsafe_allow_html=True)
 
-st.sidebar.header("🎨 HSV Range for Yellow Color")
-l_h = st.sidebar.slider("Lower Hue", 0, 180, 20)
-l_s = st.sidebar.slider("Lower Saturation", 0, 255, 100)
-l_v = st.sidebar.slider("Lower Value", 0, 255, 100)
-u_h = st.sidebar.slider("Upper Hue", 0, 180, 40)
-u_s = st.sidebar.slider("Upper Saturation", 0, 255, 255)
-u_v = st.sidebar.slider("Upper Value", 0, 255, 255)
+# Streamlit sliders for yellow color range in HSV
+st.sidebar.header("🎨 Yellow Color HSV Range")
+yl_h = st.sidebar.slider("Yellow Lower - Hue", 0, 180, 20)
+yl_s = st.sidebar.slider("Yellow Lower - Saturation", 0, 255, 100)
+yl_v = st.sidebar.slider("Yellow Lower - Value", 0, 255, 100)
 
-FRAME_WINDOW = st.image([])
+yu_h = st.sidebar.slider("Yellow Upper - Hue", 0, 180, 35)
+yu_s = st.sidebar.slider("Yellow Upper - Saturation", 0, 255, 255)
+yu_v = st.sidebar.slider("Yellow Upper - Value", 0, 255, 255)
 
+lower_yellow = np.array([yl_h, yl_s, yl_v])
+upper_yellow = np.array([yu_h, yu_s, yu_v])
+
+# Access webcam using OpenCV
 cap = cv2.VideoCapture(0)
+
+frame_placeholder1 = st.empty()
+frame_placeholder2 = st.empty()
 
 while True:
     ret, frame = cap.read()
     if not ret:
-        st.error("❌ Failed to capture video from webcam.")
+        st.error("Webcam not accessible")
         break
 
     frame = cv2.flip(frame, 1)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
 
-    lower = np.array([l_h, l_s, l_v])
-    upper = np.array([u_h, u_s, u_v])
-    mask = cv2.inRange(hsv, lower, upper)
+    # Show the frames in Streamlit
+    original_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    masked_frame = cv2.cvtColor(cv2.bitwise_and(frame, frame, mask=mask), cv2.COLOR_BGR2RGB)
 
-    # Find contours
-    contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    for cnt in contours:
-        area = cv2.contourArea(cnt)
-        if 200 < area < 3000:
-            x, y, w, h = cv2.boundingRect(cnt)
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+    frame_placeholder1.image(original_frame, caption="Original Frame", channels="RGB", width=400)
+    frame_placeholder2.image(masked_frame, caption="Masked Frame", channels="RGB", width=400)
 
-    FRAME_WINDOW.image(frame, channels="BGR")
+    if not st.button("Stop"):
+        continue
+    else:
+        break
+
+cap.release()
